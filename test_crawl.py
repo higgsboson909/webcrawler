@@ -1,4 +1,5 @@
 import unittest
+from crawl import extract_page_data
 from crawl import get_images_from_html
 from crawl import get_urls_from_html
 from crawl import get_first_paragraph_from_html
@@ -188,15 +189,19 @@ class TestCrawl(unittest.TestCase):
   <body>
     <a href="https://blog.boot.dev">Go to Boot.dev</a>
     <img src="/logo.png" alt="Boot.dev Logo" />
-    <a href="blog.boot.dev">Go to Boot.dev</a>
+    <a href="/path">Go to Boot.dev</a>
   </body>
     <img src="/logo.png" alt="Boot.dev Logo" />
 
-    <a href="boot.dev">Go to Boot.dev</a>
+    <a href="/dev">Go to Boot.dev</a>
 </html>"""
         base_url = "https://blog.boot.dev"
         actual = get_urls_from_html(html, base_url)
-        expected = ["https://blog.boot.dev", "blog.boot.dev", "boot.dev"]
+        expected = [
+            "https://blog.boot.dev",
+            "https://blog.boot.dev/path",
+            "https://blog.boot.dev/dev",
+        ]
         self.assertEqual(actual, expected)
 
     def test_get_images_from_html_relative(self):
@@ -233,6 +238,73 @@ class TestCrawl(unittest.TestCase):
         actual = get_images_from_html(input_body, input_url)
         expected = []
         self.assertEqual(actual, expected)
+
+    def test_extract_page_data_basic(self):
+        input_url = "https://blog.boot.dev"
+        input_body = """<html><body>
+        <h1>Test Title</h1>
+        <p>This is the first paragraph.</p>
+        <a href="/link1">Link 1</a>
+        <img src="/image1.jpg" alt="Image 1">
+    </body></html>"""
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://blog.boot.dev",
+            "h1": "Test Title",
+            "first_paragraph": "This is the first paragraph.",
+            "outgoing_links": ["https://blog.boot.dev/link1"],
+            "image_urls": ["https://blog.boot.dev/image1.jpg"],
+        }
+        self.assertEqual(actual, expected)
+
+    def test_extract_page_data(self):
+        input_url = "https://blog.boot.dev"
+        input_body = """<html><body><a href='/only-link'>Click me</a></body></html>"""
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://blog.boot.dev",
+            "h1": None,
+            "first_paragraph": None,
+            "outgoing_links": ["https://blog.boot.dev/only-link"],
+            "image_urls": [],
+        }
+
+    def test_extract_page_data_multiple_elements(self):
+        input_url = "https://site.org"
+        input_body = """<html><body>
+            <h1>First Title</h1>
+            <h1>Second Title</h1>
+            <p>Paragraph one.</p>
+            <p>Paragraph two.</p>
+            <a href="https://other.org/page">External</a>
+            <img src="https://site.org/pic.png">
+        </body></html>"""
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://site.org",
+            "h1": "First Title",
+            "first_paragraph": "Paragraph one.",
+            "outgoing_links": ["https://other.org/page"],
+            "image_urls": ["https://site.org/pic.png"],
+        }
+        self.assertEqual(actual, expected)
+
+    def test_extract_page_data_relative_and_malformed(self):
+        input_body = """<html><body>
+        <h1>Broken Title</h1>
+        <p>Paragraph without closing tags</p>
+        <a href="/about">About Us</a>
+        <img src="/logo.png">
+        </body></html>"""
+        input_url = "https://boot.dev"
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://boot.dev",
+            "h1": "Broken Title",
+            "p": "Paragraph without closing tags",
+            "outgoing_links": ["https://boot.dev/about"],
+            "image_urls": ["https://boot.dev/logo."],
+        }
 
 
 if __name__ == "__main__":

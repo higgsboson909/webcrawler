@@ -42,7 +42,7 @@ def get_urls_from_html(html, base_url):
         for a_tag in anchor_tags:
             anchor_link = a_tag.get("href")
             if anchor_link is not None:
-                urls.append(anchor_link)
+                urls.append(urljoin(base_url, anchor_link))
     return urls
 
 
@@ -56,6 +56,24 @@ def get_images_from_html(html, base_url):
                 urls.append(urljoin(base_url, img_tag.get("src")))
     print(urls)
     return urls
+
+
+def extract_page_data(html, page_url):
+    data = {
+        "url": None,
+        "h1": None,
+        "first_paragraph": None,
+        "outgoing_links": [],
+        "image_urls": [],
+    }
+
+    data["url"] = page_url
+    data["h1"] = get_h1_from_html(html)
+    data["first_paragraph"] = get_first_paragraph_from_html(html)
+    data["outgoing_links"] = get_urls_from_html(html, page_url)
+    data["image_urls"] = get_images_from_html(html, page_url)
+
+    return data
 
 
 #
