@@ -3,6 +3,8 @@ from urllib.parse import urlparse
 
 def normalize_url(url):
     parsed_obj = urlparse(url)
-    # if parsed_obj.path == "":
+    path = parsed_obj.path.rstrip("/")
+    return parsed_obj.netloc + path
 
-    return parsed_obj.netloc + parsed_obj.path
+
+print(normalize_url("book.me/"))
