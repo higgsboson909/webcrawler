@@ -1,4 +1,5 @@
 import unittest
+from crawl import get_images_from_html
 from crawl import get_urls_from_html
 from crawl import get_first_paragraph_from_html
 from crawl import get_h1_from_html
@@ -160,10 +161,77 @@ class TestCrawl(unittest.TestCase):
     <a href="https://blog.boot.dev">Go to Boot.dev</a>
     <img src="/logo.png" alt="Boot.dev Logo" />
   </body>
+    <img src="/logo.png" alt="Boot.dev Logo" />
+
 </html>"""
         base_url = "https://blog.boot.dev"
         actual = get_urls_from_html(html, base_url)
-        expected = ["https://blog.boot.dev", "https://blog.boot.dev/logo.png"]
+        expected = ["https://blog.boot.dev"]
+        self.assertEqual(actual, expected)
+
+    def test_get_urls_from_html_3(self):
+        html = """<html>
+  <body>
+    <a >Go to Boot.dev</a>
+    <img src="/logo.png" alt="Boot.dev Logo" />
+  </body>
+    <img src="/logo.png" alt="Boot.dev Logo" />
+
+</html>"""
+        base_url = "https://blog.boot.dev"
+        actual = get_urls_from_html(html, base_url)
+        expected = []
+        self.assertEqual(actual, expected)
+
+    def test_get_urls_from_html_2(self):
+        html = """<html>
+  <body>
+    <a href="https://blog.boot.dev">Go to Boot.dev</a>
+    <img src="/logo.png" alt="Boot.dev Logo" />
+    <a href="blog.boot.dev">Go to Boot.dev</a>
+  </body>
+    <img src="/logo.png" alt="Boot.dev Logo" />
+
+    <a href="boot.dev">Go to Boot.dev</a>
+</html>"""
+        base_url = "https://blog.boot.dev"
+        actual = get_urls_from_html(html, base_url)
+        expected = ["https://blog.boot.dev", "blog.boot.dev", "boot.dev"]
+        self.assertEqual(actual, expected)
+
+    def test_get_images_from_html_relative(self):
+        input_url = "https://blog.boot.dev"
+        input_body = '<html><body><img alt="Logo"></body></html>'
+        actual = get_images_from_html(input_body, input_url)
+        expected = []
+        self.assertEqual(actual, expected)
+
+    def test_get_images_from_html_absolute(self):
+        input_url = "https://blog.boot.dev"
+        input_body = '<html><body><img src="https://cdn.boot.dev/assets/img.png" alt="Logo"></body></html>'
+        actual = get_images_from_html(input_body, input_url)
+        expected = ["https://cdn.boot.dev/assets/img.png"]
+        self.assertEqual(actual, expected)
+
+    def test_get_images_from_html_mixed(self):
+        input_url = "https://blog.boot.dev"
+        input_body = """
+    <html><body>
+        <img src="/images/logo.png" alt="Logo">
+        <img src="https://static.boot.dev/banner.jpg" alt="Banner">
+    </body></html>"""
+        actual = get_images_from_html(input_body, input_url)
+        expected = [
+            "https://blog.boot.dev/images/logo.png",
+            "https://static.boot.dev/banner.jpg",
+        ]
+        self.assertCountEqual(actual, expected)
+
+    def test_get_images_from_html_no_images(self):
+        input_url = "https://blog.boot.dev"
+        input_body = "<html><body><p>No images here!</p></body></html>"
+        actual = get_images_from_html(input_body, input_url)
+        expected = []
         self.assertEqual(actual, expected)
 
 

@@ -1,6 +1,6 @@
 from unittest import main
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 
 def normalize_url(url):
@@ -36,20 +36,59 @@ def get_first_paragraph_from_html(html):
 
 def get_urls_from_html(html, base_url):
     soup = BeautifulSoup(html)
+    urls = []
+    anchor_tags = soup.findAll("a")
+    if anchor_tags is not None:
+        for a_tag in anchor_tags:
+            anchor_link = a_tag.get("href")
+            if anchor_link is not None:
+                urls.append(anchor_link)
+    return urls
 
-    print(soup.findAll("a"))
-    print(soup.findAll("img"))
+
+def get_images_from_html(html, base_url):
+    soup = BeautifulSoup(html)
+    urls = []
+    img_tags = soup.findAll("img")
+    if img_tags is not None:
+        for img_tag in img_tags:
+            if img_tag.get("src") is not None:
+                urls.append(urljoin(base_url, img_tag.get("src")))
+    print(urls)
+    return urls
 
 
-get_urls_from_html(
+#
+# get_urls_from_html(
+#     """<html>
+#   <body>
+#     <a href="https://blog.boot.dev">Go to Boot.dev</a>
+#     <img src="/logo.png" alt="Boot.dev Logo" />
+#     <a href="blog.boot.dev">Go to Boot.dev</a>
+#   </body>
+#     <img src="/logo.png" alt="Boot.dev Logo" />
+#
+#     <a href="boot.dev">Go to Boot.dev</a>
+# </html>""",
+#     "https://blog.boot.dev",
+# )
+
+get_images_from_html(
     """<html>
   <body>
     <a href="https://blog.boot.dev">Go to Boot.dev</a>
     <img src="/logo.png" alt="Boot.dev Logo" />
+    <a href="blog.boot.dev">Go to Boot.dev</a>
   </body>
+    <img src="/logo.png" alt="Boot.dev Logo" />
+
+    <a href="boot.dev">Go to Boot.dev</a>
 </html>""",
     "https://blog.boot.dev",
 )
+#
+#
+#
 # print(normalize_url("book.me/"))
 # print(
 #     get_first_paragraph_from_html("""<html>
