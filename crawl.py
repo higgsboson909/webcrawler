@@ -1,4 +1,5 @@
 from unittest import main
+import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 
@@ -10,7 +11,7 @@ def normalize_url(url):
 
 
 def get_h1_from_html(html):
-    soup = BeautifulSoup(html)
+    soup = BeautifulSoup(html, "html.parser")
 
     h1_tag = soup.find("h1")
     if h1_tag is not None:
@@ -59,64 +60,65 @@ def get_images_from_html(html, base_url):
 
 
 def extract_page_data(html, page_url):
-    data = {
-        "url": None,
-        "h1": None,
-        "first_paragraph": None,
-        "outgoing_links": [],
-        "image_urls": [],
+    return {
+        "url": page_url,
+        "h1": get_h1_from_html(html),
+        "first_paragraph": get_first_paragraph_from_html(html),
+        "outgoing_links": get_urls_from_html(html, page_url),
+        "image_urls": get_images_from_html(html, page_url),
     }
 
-    data["url"] = page_url
-    data["h1"] = get_h1_from_html(html)
-    data["first_paragraph"] = get_first_paragraph_from_html(html)
-    data["outgoing_links"] = get_urls_from_html(html, page_url)
-    data["image_urls"] = get_images_from_html(html, page_url)
 
-    return data
+def get_html(url):
+    try:
+        response = requests.get(url, headers={"User-Agent": "BootCrawler/1.0"})
+    except Exception as e:
+        raise Exception(f"network error while fetching {url}: {e}")
+
+    if response.status_code > 399:
+        raise Exception(f"got HTTP error: {response.status_code} {response.reason}")
+
+    content_type = response.headers.get("content-type", "")
+    if "text/html" not in content_type:
+        raise Exception(f"got non-HTML response: {content_type}")
+
+    return response.text
 
 
-#
-# get_urls_from_html(
-#     """<html>
-#   <body>
-#     <a href="https://blog.boot.dev">Go to Boot.dev</a>
-#     <img src="/logo.png" alt="Boot.dev Logo" />
-#     <a href="blog.boot.dev">Go to Boot.dev</a>
-#   </body>
-#     <img src="/logo.png" alt="Boot.dev Logo" />
-#
-#     <a href="boot.dev">Go to Boot.dev</a>
-# </html>""",
-#     "https://blog.boot.dev",
-# )
+def safe_get_html(url):
+    try:
+        return get_html(url)
+    except Exception as e:
+        print(f"{e}")
+        return None
 
-get_images_from_html(
-    """<html>
-  <body>
-    <a href="https://blog.boot.dev">Go to Boot.dev</a>
-    <img src="/logo.png" alt="Boot.dev Logo" />
-    <a href="blog.boot.dev">Go to Boot.dev</a>
-  </body>
-    <img src="/logo.png" alt="Boot.dev Logo" />
 
-    <a href="boot.dev">Go to Boot.dev</a>
-</html>""",
-    "https://blog.boot.dev",
-)
-#
-#
-#
-# print(normalize_url("book.me/"))
-# print(
-#     get_first_paragraph_from_html("""<html>
-#   <body>
-#   <p>Hi</p>
-#     <main>
-#
-#   <p>Inside Hi</p>
-#     <h1>hi</h1>
-#     </main>
-#   </body>
-# </html>""")
-# )
+def crawl_page(base_url, current_url=None, page_data=None):
+    if current_url is None:
+        current_url = base_url
+    if page_data is None:
+        page_data = {}
+
+    base_url_obj = urlparse(base_url)
+    current_url_obj = urlparse(current_url)
+    if current_url_obj.netloc != base_url_obj.netloc:
+        return page_data
+
+    normalized_url = normalize_url(current_url)
+
+    if normalized_url in page_data:
+        return page_data
+
+    print(f"crawling {current_url}")
+    html = safe_get_html(current_url)
+    if html is None:
+        return page_data
+
+    page_info = extract_page_data(html, current_url)
+    page_data[normalized_url] = page_info
+
+    next_urls = get_urls_from_html(html, base_url)
+    for next_url in next_urls:
+        page_data = crawl_page(base_url, next_url, page_data)
+
+    return page_data
