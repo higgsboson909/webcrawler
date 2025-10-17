@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 
 
+# used for: do we crawled the page beforehand
 def normalize_url(url):
     parsed_obj = urlparse(url)
     path = parsed_obj.path.rstrip("/")
@@ -55,7 +56,6 @@ def get_images_from_html(html, base_url):
         for img_tag in img_tags:
             if img_tag.get("src") is not None:
                 urls.append(urljoin(base_url, img_tag.get("src")))
-    print(urls)
     return urls
 
 
@@ -73,14 +73,13 @@ def get_html(url):
     try:
         response = requests.get(url, headers={"User-Agent": "BootCrawler/1.0"})
     except Exception as e:
-        raise Exception(f"network error while fetching {url}: {e}")
-
+        raise Exception(f"Network error while fetching {url}: {e}")
     if response.status_code > 399:
-        raise Exception(f"got HTTP error: {response.status_code} {response.reason}")
+        raise Exception(f"Got HTTP error: {response.status_code} {response.reason}")
 
     content_type = response.headers.get("content-type", "")
     if "text/html" not in content_type:
-        raise Exception(f"got non-HTML response: {content_type}")
+        raise Exception(f"Got HTTP error {content_type}")
 
     return response.text
 
