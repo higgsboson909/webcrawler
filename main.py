@@ -1,9 +1,10 @@
-from crawl import get_html
-from crawl import crawl_page
+import time
+import asyncio
+from crawl import crawl_site_async
 import sys
 
 
-def main():
+async def main():
     print("Hello from webcrawler!")
 
     if len(sys.argv) < 2:
@@ -16,17 +17,19 @@ def main():
     print("Script name: ", sys.argv[0])
     print("Argument: ", sys.argv[1])
 
-    # print(get_html(sys.argv[1]))
+    start_time = time.time()
+    print(f"Starting async crawl of: {sys.argv[1]}")
 
-    page_data = crawl_page(sys.argv[1])
-    # for data in page_data:
-    # print(f"- {data.get('url')}: {data['outgoing_links']} links")
-    # print(data)
-    print(f"Found {len(page_data)} pages:")
+    page_data = await crawl_site_async(sys.argv[1])
+
     for page in page_data.values():
-        print(f"- {page['url']}: {len(page['outgoing_links'])} outgoing links")
+        print(f"Found {len(page['outgoing_links'])} outgoing links on {page['url']}")
+
+    end_time = time.time()
+    print(f"time {end_time - start_time}")
+
     sys.exit(0)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
