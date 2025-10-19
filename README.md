@@ -1,5 +1,7 @@
 # Web Crawler
 
+## About
+
 This is a simple asynchronous web crawler built with Python. It's designed to efficiently crawl a website, extracting key information from each page.
 
 ## Features
