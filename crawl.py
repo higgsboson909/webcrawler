@@ -1,4 +1,4 @@
-from asyncio import Lock
+from asyncio import Lock, all_tasks
 import asyncio
 import aiohttp
 from unittest import main
@@ -81,14 +81,18 @@ def safe_get_html(url):
 
 
 class AsyncCrawler:
-    def __init__(self, base_url):
+    def __init__(self, base_url, max_concurrency, max_pages):
         self.base_url = base_url
         self.base_domain = urlparse(base_url).netloc
         self.page_data = {}
         self.lock = asyncio.Lock()
-        self.max_concurrency = 5
+        self.max_concurrency = max_concurrency
+        self.max_pages = max_pages
+        self.should_stop = False
         self.semaphore = asyncio.Semaphore(self.max_concurrency)
         self.session = None
+
+        self.all_tasks = set()
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -99,7 +103,17 @@ class AsyncCrawler:
 
     async def add_page_visit(self, normalized_url):
         async with self.lock:
+            if self.should_stop is True:
+                return False
+
             if normalized_url in self.page_data:
+                return False
+            if len(self.page_data) >= self.max_pages:
+                self.should_stop = True
+                print("Reached Maximux page limit")
+                for task in self.all_tasks:
+                    if not task.done():
+                        task.cancel()
                 return False
             else:
                 return True
@@ -124,26 +138,9 @@ class AsyncCrawler:
             print(f"Error {e}")
             return None
 
-    # async def get_html(self, url):
-    #     try:
-    #         async with self.session.get(
-    #             url, headers={"User-Agent": "BootCrawler/1.0"}
-    #         ) as response:
-    #             if response.status > 399:
-    #                 print(f"Error: HTTP {response.status} for {url}")
-    #                 return None
-    #
-    #             content_type = response.headers.get("content-type", "")
-    #             if "text/html" not in content_type:
-    #                 print(f"Error: Non-HTML content {content_type} for {url}")
-    #                 return None
-    #
-    #             return await response.text()
-    #     except Exception as e:
-    #         print(f"Error fetching {url}: {e}")
-    #         return None
-
     async def crawl_page(self, current_url):
+        if self.should_stop is True:
+            return
         current_url_obj = urlparse(current_url)
         if current_url_obj.netloc != self.base_domain:
             return
@@ -167,20 +164,27 @@ class AsyncCrawler:
             async with self.lock:
                 self.page_data[normalized_url] = page_info
 
+        if self.should_stop:
+            return
         next_urls = get_urls_from_html(html, self.base_url)
 
         tasks = []
         for next_url in next_urls:
-            tasks.append(asyncio.create_task(self.crawl_page(next_url)))
-
+            task = asyncio.create_task(self.crawl_page(next_url))
+            tasks.append(task)
+            self.all_tasks.add(task)
         if tasks:
-            await asyncio.gather(*tasks)
+            try:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            finally:
+                for task in tasks:
+                    self.all_tasks.discard(task)
 
     async def crawl(self):
         await self.crawl_page(self.base_url)
         return self.page_data
 
 
-async def crawl_site_async(base_url):
-    async with AsyncCrawler(base_url) as crawler:
+async def crawl_site_async(base_url, max_concurrency=3, max_pages=20):
+    async with AsyncCrawler(base_url, max_concurrency, max_pages) as crawler:
         return await crawler.crawl()
