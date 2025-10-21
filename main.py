@@ -2,6 +2,7 @@ import time
 import asyncio
 from crawl import crawl_site_async
 import sys
+from csv_report import write_csv_report
 
 
 async def main():
@@ -31,7 +32,11 @@ async def main():
         print(f"Found {len(page['outgoing_links'])} outgoing links on {page['url']}")
 
     end_time = time.time()
+
     print(f"time {end_time - start_time}")
+
+    write_csv_report(page_data)
+    print("Genereated a csv report")
 
     sys.exit(0)
 
